@@ -25,12 +25,17 @@
 
         <p id="home-notice" class="notice" role="status" aria-live="polite" hidden></p>
 
+        <section id="captcha-panel" class="panel captcha-panel" aria-label="ボット対策の確認" hidden>
+          <p>部屋を利用する前に、ボット対策の確認を行います。</p>
+          <div id="captcha-widget"></div>
+        </section>
+
         <div class="form-grid">
           <form id="create-form" class="panel">
             <p class="panel-label">新しい部屋</p>
             <label for="create-name">あなたの名前</label>
             <input id="create-name" name="name" maxlength="24" autocomplete="nickname" placeholder="例：さくら" required>
-            <button class="button button-primary" type="submit">部屋を作る</button>
+            <button class="button button-primary" type="submit" disabled>部屋を作る</button>
           </form>
 
           <form id="join-form" class="panel">
@@ -39,10 +44,10 @@
             <input id="join-name" name="name" maxlength="24" autocomplete="nickname" placeholder="例：さくら" required>
             <label for="join-code">部屋コード</label>
             <input id="join-code" name="code" maxlength="8" pattern="[a-fA-F0-9]{8}" autocapitalize="characters" placeholder="8桁のコード" required>
-            <button class="button button-secondary" type="submit">参加する</button>
+            <button class="button button-secondary" type="submit" disabled>参加する</button>
           </form>
         </div>
-        <p class="fine-print">数字は1〜100から重複なしで配られ、自分の数字だけが表示されます。</p>
+        <p class="fine-print">最大20人。数字は1〜100から重複なしで配られ、自分の数字だけが表示されます。</p>
       </section>
 
       <section id="room-screen" class="screen" aria-labelledby="room-heading" hidden>

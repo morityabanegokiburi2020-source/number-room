@@ -6,15 +6,26 @@
 
 1. Supabaseでプロジェクトを作成します。
 2. Authenticationの設定で匿名サインインを有効にします。
-3. SQL Editorで `supabase.sql` の内容を全選択して実行します。続けて `upgrade-rounds.sql` の内容も全選択して実行します。
+3. SQL Editorで `supabase.sql`、`upgrade-rounds.sql`、`upgrade-security.sql` をこの順に、それぞれ内容を全選択して実行します。
 4. Project SettingsからProject URLと公開用のPublishable keyを確認します。Secret keyや`service_role`キーは使用しないでください。
 5. `config.js`の`supabaseUrl`と`supabaseAnonKey`にProject URLとPublishable keyを設定します。
+6. 以下の手順でCloudflare TurnstileとSupabaseのCAPTCHAを設定します。
 
 Publishable keyはブラウザーに配信されます。データ保護はキーを隠すのではなく、SQLで設定したRLSとRPC関数の認可で行います。
 
 ### 既存のアプリをアップデートする場合
 
-すでに `supabase.sql` を実行済みの場合は、SupabaseのSQL Editorで `upgrade-rounds.sql` の内容を全選択し、実行します。既存の部屋や参加者は削除されません。SQLの実行が成功したら、変更した `index.html`、`styles.css`、`app.js` と `upgrade-rounds.sql`、`README.md` をGitHubにアップロードしてください。GitHub Pagesへの反映後、参加者全員がページを再読み込みしてください。
+すでに `supabase.sql` と `upgrade-rounds.sql` を実行済みの場合は、SupabaseのSQL Editorで `upgrade-security.sql` の内容を全選択して実行します。既存の部屋や参加者は削除されませんが、20人を超える部屋では配布できないため、新しく部屋を作り直してください。
+
+### CAPTCHAの設定
+
+1. [Cloudflare Turnstile](https://dash.cloudflare.com/) でウィジェットを作成します。GitHub Pagesのホスト名（例：`ユーザー名.github.io`）を許可対象に設定します。ローカルでも試す場合は `localhost` も許可します。
+2. 表示されるSitekeyを `config.js` の `turnstileSiteKey` に設定します。これは公開用のキーです。Secret keyはファイルやGitHubに入れないでください。
+3. 更新した `config.js`、`index.html`、`styles.css`、`app.js`、`upgrade-security.sql`、`README.md` をGitHubへアップロードし、GitHub Pagesに反映されるのを待ちます。
+4. Supabaseの **Authentication → Attack Protection → CAPTCHA protection** でTurnstileを選び、CloudflareのSecret keyを入力して保存します。Secret keyはSupabaseの設定画面だけで扱ってください。
+5. シークレットウィンドウなどの新規セッションで公開サイトを開き、CAPTCHA後に部屋を作成・参加できることを確認します。既存のログイン済みセッションではCAPTCHAは表示されません。
+
+CAPTCHAは自動化を抑える対策であり、不正利用を完全に防ぐものではありません。Supabaseの利用量やレート制限も確認してください。設定前は新規ユーザーがアプリを利用できません。Supabase側でCAPTCHAを有効にした後は、古いアプリからの新規サインインもできなくなります。
 
 ## GitHub Pagesで公開
 
@@ -38,5 +49,5 @@ SupabaseのURLと公開用キーを設定した`config.js`もリポジトリに�
 
 - ルームと参加者はSupabaseに保存されます。データベースのバックアップや利用上限はSupabaseの設定に従います。
 - 部屋コードは8桁の16進数です。参加用コードは招待した人にだけ共有してください。
-- 現在の実装は1部屋あたり最大100人です。
+- 1部屋あたり最大20人です。人数制限は大量の参加者による消去法を難しくしますが、共謀や推測を完全には防げません。
 - 数字の配布後、新しい参加者はその部屋に参加できません。配布後にホームへ戻っても参加登録が保持されるため、続けて遊ぶ際は部屋に残ります。

@@ -14,6 +14,8 @@ const createForm = document.querySelector("#create-form");
 const joinForm = document.querySelector("#join-form");
 const createButton = createForm.querySelector("button");
 const joinButton = joinForm.querySelector("button");
+const captchaPanel = document.querySelector("#captcha-panel");
+const captchaWidget = document.querySelector("#captcha-widget");
 const roomHeading = document.querySelector("#room-heading");
 const roomStatus = document.querySelector("#room-status");
 const playersList = document.querySelector("#players-list");
@@ -41,6 +43,8 @@ let activeChannel = null;
 let currentRound = 0;
 let previousTheme = null;
 let refreshSequence = 0;
+let captchaWidgetId = null;
+let signingIn = false;
 
 const themes = {
   1: [
@@ -133,10 +137,75 @@ async function ensureSignedIn() {
   requireSupabase();
   const { data, error } = await supabase.auth.getSession();
   if (error) throw error;
-  if (data.session) return;
+  if (!data.session) {
+    throw new Error("ボット対策の確認を完了してから、もう一度お試しください。");
+  }
+}
 
-  const { error: signInError } = await supabase.auth.signInAnonymously();
-  if (signInError) throw signInError;
+function setHomeEnabled(enabled) {
+  createButton.disabled = !enabled;
+  joinButton.disabled = !enabled;
+}
+
+async function restoreRoom() {
+  const savedRoomId = sessionStorage.getItem("ito-room-id");
+  if (!savedRoomId) return;
+  currentRoomId = savedRoomId;
+  showScreen("room");
+  try {
+    await refreshRoom();
+    subscribeToRoom(savedRoomId);
+  } catch (error) {
+    sessionStorage.removeItem("ito-room-id");
+    currentRoomId = null;
+    showScreen("home");
+    notify(`前回の部屋に戻れませんでした: ${errorMessage(error)}`);
+  }
+}
+
+async function completeCaptcha(token) {
+  if (signingIn) return;
+  signingIn = true;
+  setHomeEnabled(false);
+  try {
+    const { error } = await supabase.auth.signInAnonymously({
+      options: { captchaToken: token }
+    });
+    if (error) throw error;
+    captchaPanel.hidden = true;
+    clearNotices();
+    setHomeEnabled(true);
+    await restoreRoom();
+  } catch (error) {
+    notify(`認証に失敗しました: ${errorMessage(error)}。もう一度お試しください。`);
+    window.turnstile.reset(captchaWidgetId);
+  } finally {
+    signingIn = false;
+  }
+}
+
+function showCaptcha() {
+  if (!config.turnstileSiteKey) {
+    throw new Error("ボット対策が未設定です。管理者はconfig.jsのturnstileSiteKeyを設定してください。");
+  }
+  captchaPanel.hidden = false;
+  const script = document.createElement("script");
+  script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+  script.async = true;
+  script.onload = () => {
+    try {
+      captchaWidgetId = window.turnstile.render(captchaWidget, {
+        sitekey: config.turnstileSiteKey,
+        callback: (token) => completeCaptcha(token),
+        "expired-callback": () => notify("認証の有効期限が切れました。もう一度確認してください。"),
+        "error-callback": () => notify("ボット対策の確認に失敗しました。ページを再読み込みしてください。")
+      });
+    } catch (error) {
+      notify(`ボット対策を表示できません: ${errorMessage(error)}`);
+    }
+  };
+  script.onerror = () => notify("ボット対策を読み込めません。通信環境を確認してページを再読み込みしてください。");
+  document.head.append(script);
 }
 
 async function withBusyButton(button, action) {
@@ -332,20 +401,13 @@ async function initialize() {
   }
 
   try {
-    await ensureSignedIn();
-    const savedRoomId = sessionStorage.getItem("ito-room-id");
-    if (savedRoomId) {
-      currentRoomId = savedRoomId;
-      showScreen("room");
-      try {
-        await refreshRoom();
-        subscribeToRoom(savedRoomId);
-      } catch (error) {
-        sessionStorage.removeItem("ito-room-id");
-        currentRoomId = null;
-        showScreen("home");
-        notify(`前回の部屋に戻れませんでした: ${errorMessage(error)}`);
-      }
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    if (data.session) {
+      setHomeEnabled(true);
+      await restoreRoom();
+    } else {
+      showCaptcha();
     }
   } catch (error) {
     notify(errorMessage(error));
