@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f6f1e8">
+    <title>ito - 数字を配ろう</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="site-header">
+        <a class="brand" href="./" aria-label="ito ホーム">
+          <span class="brand-mark">ito</span>
+          <span class="brand-caption">みんなで数字を配ろう</span>
+        </a>
+      </header>
+
+      <section id="home-screen" class="screen is-active" aria-labelledby="home-title">
+        <div class="intro">
+          <p class="eyebrow">ROOM GAME</p>
+          <h1 id="home-title">仲間と集まって、<br>数字を受け取ろう。</h1>
+          <p class="intro-copy">部屋を作るか、仲間の部屋コードを入力してください。</p>
+        </div>
+
+        <p id="home-notice" class="notice" role="status" aria-live="polite" hidden></p>
+
+        <div class="form-grid">
+          <form id="create-form" class="panel">
+            <p class="panel-label">新しい部屋</p>
+            <label for="create-name">あなたの名前</label>
+            <input id="create-name" name="name" maxlength="24" autocomplete="nickname" placeholder="例：さくら" required>
+            <button class="button button-primary" type="submit">部屋を作る</button>
+          </form>
+
+          <form id="join-form" class="panel">
+            <p class="panel-label">部屋に参加</p>
+            <label for="join-name">あなたの名前</label>
+            <input id="join-name" name="name" maxlength="24" autocomplete="nickname" placeholder="例：さくら" required>
+            <label for="join-code">部屋コード</label>
+            <input id="join-code" name="code" maxlength="8" pattern="[a-fA-F0-9]{8}" autocapitalize="characters" placeholder="8桁のコード" required>
+            <button class="button button-secondary" type="submit">参加する</button>
+          </form>
+        </div>
+        <p class="fine-print">数字は1〜100から重複なしで配られ、自分の数字だけが表示されます。</p>
+      </section>
+
+      <section id="room-screen" class="screen" aria-labelledby="room-heading" hidden>
+        <div class="room-topline">
+          <button id="leave-button" class="text-button" type="button">← ホームへ戻る</button>
+          <span id="room-status" class="status-pill">接続中</span>
+        </div>
+
+        <div class="room-heading">
+          <p class="eyebrow">ROOM CODE</p>
+          <div class="code-row">
+            <h1 id="room-heading" class="room-code">------</h1>
+            <button id="copy-button" class="button button-small" type="button">コードをコピー</button>
+          </div>
+          <p class="intro-copy">仲間にコードを共有して、参加してもらいましょう。</p>
+        </div>
+
+        <p id="room-notice" class="notice" role="status" aria-live="polite" hidden></p>
+
+        <div class="room-layout">
+          <section class="panel players-panel" aria-labelledby="players-title">
+            <div class="section-heading">
+              <h2 id="players-title">参加者</h2>
+              <span id="player-count" class="count-badge">0人</span>
+            </div>
+            <ul id="players-list" class="players-list"></ul>
+            <p id="host-hint" class="muted-copy" hidden>参加者がそろったら、数字を配りましょう。</p>
+            <p id="guest-hint" class="muted-copy" hidden>ホストが開始するまでお待ちください。</p>
+            <button id="start-button" class="button button-primary" type="button" hidden>数字を配る</button>
+          </section>
+
+          <section id="number-panel" class="panel number-panel" aria-labelledby="number-title" hidden>
+            <p class="eyebrow">YOUR NUMBER</p>
+            <h2 id="number-title" class="number-value">--</h2>
+            <p class="muted-copy">この数字はあなたにだけ表示されています。</p>
+          </section>
+        </div>
+      </section>
+
+      <footer class="site-footer">
+        <span>みんなで遊ぶためのシンプルな数字配布ツール</span>
+      </footer>
+    </main>
+    <script src="./config.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
