@@ -301,6 +301,10 @@ input::placeholder {
   gap: 18px;
 }
 
+#refresh-button {
+  margin-bottom: 18px;
+}
+
 .game-cards {
   display: grid;
   gap: 18px;

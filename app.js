@@ -36,10 +36,14 @@ const numberPanel = document.querySelector("#number-panel");
 const numberValue = document.querySelector("#number-title");
 const copyButton = document.querySelector("#copy-button");
 const leaveButton = document.querySelector("#leave-button");
+const refreshButton = document.querySelector("#refresh-button");
 
 let currentRoomId = null;
 let currentRoomCode = null;
+let currentIsHost = null;
 let activeChannel = null;
+let refreshTimer = null;
+let roomRefreshError = null;
 let currentRound = 0;
 let previousTheme = null;
 let refreshSequence = 0;
@@ -150,16 +154,10 @@ function setHomeEnabled(enabled) {
 async function restoreRoom() {
   const savedRoomId = sessionStorage.getItem("ito-room-id");
   if (!savedRoomId) return;
-  currentRoomId = savedRoomId;
-  showScreen("room");
   try {
-    await refreshRoom();
-    subscribeToRoom(savedRoomId);
+    await enterRoom(savedRoomId);
   } catch (error) {
-    sessionStorage.removeItem("ito-room-id");
-    currentRoomId = null;
-    showScreen("home");
-    notify(`前回の部屋に戻れませんでした: ${errorMessage(error)}`);
+    notify(`部屋の情報を取得できません: ${errorMessage(error)}。通信を確認し、更新してください。`);
   }
 }
 
@@ -240,10 +238,65 @@ async function joinRoom(displayName, code) {
 
 async function enterRoom(roomId) {
   currentRoomId = roomId;
+  currentRoomCode = null;
+  currentIsHost = null;
+  currentRound = 0;
+  previousTheme = null;
+  roomRefreshError = null;
+  roomHeading.textContent = "------";
+  roomStatus.textContent = "接続中";
+  playerCount.textContent = "0人";
+  playersList.replaceChildren();
+  roundForm.hidden = true;
+  hostHint.hidden = true;
+  guestHint.hidden = true;
+  numberPanel.hidden = true;
+  themePanel.hidden = true;
+  copyButton.disabled = true;
   sessionStorage.setItem("ito-room-id", roomId);
   showScreen("room");
-  await refreshRoom();
   subscribeToRoom(roomId);
+  if (refreshTimer) window.clearInterval(refreshTimer);
+  refreshTimer = window.setInterval(checkRoom, 30000);
+  try {
+    await refreshRoom();
+  } catch (error) {
+    if (currentRoomId === roomId) reportRoomRefreshError(error);
+  }
+}
+
+function finishRoom(message) {
+  currentRoomId = null;
+  currentRoomCode = null;
+  currentIsHost = null;
+  currentRound = 0;
+  previousTheme = null;
+  roomRefreshError = null;
+  if (refreshTimer) {
+    window.clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+  if (activeChannel) {
+    supabase.removeChannel(activeChannel).catch((error) => {
+      console.error("リアルタイム接続の終了に失敗しました:", error);
+    });
+    activeChannel = null;
+  }
+  sessionStorage.removeItem("ito-room-id");
+  showScreen("home");
+  if (message) notify(message);
+}
+
+function checkRoom() {
+  const roomId = currentRoomId;
+  refreshRoom().catch((error) => {
+    if (roomId && currentRoomId === roomId) reportRoomRefreshError(error);
+  });
+}
+
+function reportRoomRefreshError(error) {
+  roomRefreshError = `部屋の情報を取得できません: ${errorMessage(error)}。通信を確認し、更新してください。`;
+  notify(roomRefreshError);
 }
 
 async function refreshRoom() {
@@ -254,9 +307,21 @@ async function refreshRoom() {
     p_room_id: roomId
   });
   if (roomId !== currentRoomId || sequence !== refreshSequence) return;
-  if (error) throw error;
-
+  if (error) {
+    if (error.message === "この部屋に参加していません") {
+      finishRoom("部屋が終了したか、参加登録が解除されました。");
+      return;
+    }
+    throw error;
+  }
+  if (roomRefreshError && roomNotice.textContent === roomRefreshError) {
+    roomNotice.textContent = "";
+    roomNotice.hidden = true;
+  }
+  roomRefreshError = null;
   currentRoomCode = data.code;
+  currentIsHost = data.is_host;
+  copyButton.disabled = false;
   currentRound = data.round_number ?? 0;
   previousTheme = data.theme ?? null;
   roomHeading.textContent = data.code;
@@ -308,12 +373,11 @@ function subscribeToRoom(roomId) {
       schema: "public",
       table: "rooms",
       filter: `id=eq.${roomId}`
-    }, () => {
-      refreshRoom().catch((error) => notify(errorMessage(error)));
-    })
+    }, checkRoom)
     .subscribe((status) => {
-      if (status === "SUBSCRIBED" && currentRoomId === roomId) {
-        refreshRoom().catch((error) => notify(errorMessage(error)));
+      if (currentRoomId !== roomId) return;
+      if (status === "SUBSCRIBED") {
+        checkRoom();
       }
       if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
         notify("リアルタイム接続に失敗しました。ページを再読み込みしてください。");
@@ -373,22 +437,28 @@ copyButton.addEventListener("click", () => {
   });
 });
 
+refreshButton.addEventListener("click", () => {
+  withBusyButton(refreshButton, async () => {
+    const roomId = currentRoomId;
+    await refreshRoom();
+    if (currentRoomId === roomId) clearNotices();
+  });
+});
+
 leaveButton.addEventListener("click", () => {
+  const message = currentIsHost === true
+    ? "ホストがホームへ戻ると部屋は終了し、全員が遊べなくなります。戻りますか？"
+    : currentIsHost === false
+      ? "ホームへ戻るとこの部屋から退出します。配布後は再参加できません。戻りますか？"
+      : "部屋の状態を確認できません。ホストなら部屋が終了し、参加者なら退出します。戻りますか？";
+  if (!window.confirm(message)) return;
   withBusyButton(leaveButton, async () => {
+    const roomId = currentRoomId;
     const { error } = await supabase.rpc("leave_room", {
-      p_room_id: currentRoomId
+      p_room_id: roomId
     });
     if (error) throw error;
-    if (activeChannel) {
-      await supabase.removeChannel(activeChannel);
-      activeChannel = null;
-    }
-    currentRoomId = null;
-    currentRoomCode = null;
-    currentRound = 0;
-    previousTheme = null;
-    sessionStorage.removeItem("ito-room-id");
-    showScreen("home");
+    if (currentRoomId === roomId) finishRoom();
   });
 });
 
