@@ -29,7 +29,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -39,6 +40,7 @@ button {
 
 button:focus-visible,
 input:focus-visible,
+select:focus-visible,
 a:focus-visible {
   outline: 3px solid rgba(232, 93, 63, 0.35);
   outline-offset: 3px;
@@ -153,7 +155,8 @@ label {
   font-weight: 600;
 }
 
-input {
+input,
+select {
   width: 100%;
   min-height: 48px;
   margin-bottom: 18px;
@@ -287,6 +290,23 @@ input::placeholder {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
   gap: 18px;
+}
+
+.game-cards {
+  display: grid;
+  gap: 18px;
+}
+
+.theme-panel h2 {
+  margin-bottom: 12px;
+  font-size: 18px;
+}
+
+.theme-text {
+  overflow-wrap: anywhere;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.6;
 }
 
 .section-heading {

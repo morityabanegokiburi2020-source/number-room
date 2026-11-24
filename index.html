@@ -20,7 +20,7 @@
         <div class="intro">
           <p class="eyebrow">ROOM GAME</p>
           <h1 id="home-title">仲間と集まって、<br>数字を受け取ろう。</h1>
-          <p class="intro-copy">部屋を作るか、仲間の部屋コードを入力してください。</p>
+          <p class="intro-copy">部屋を作るか、仲間の部屋コードを入力してください。お題と数字で会話を楽しもう。</p>
         </div>
 
         <p id="home-notice" class="notice" role="status" aria-live="polite" hidden></p>
@@ -69,16 +69,44 @@
               <span id="player-count" class="count-badge">0人</span>
             </div>
             <ul id="players-list" class="players-list"></ul>
-            <p id="host-hint" class="muted-copy" hidden>参加者がそろったら、数字を配りましょう。</p>
+            <p id="host-hint" class="muted-copy" hidden>参加者がそろったら、お題と数字を配りましょう。</p>
             <p id="guest-hint" class="muted-copy" hidden>ホストが開始するまでお待ちください。</p>
-            <button id="start-button" class="button button-primary" type="button" hidden>数字を配る</button>
+            <form id="round-form" hidden>
+              <label for="difficulty">お題のレベル</label>
+              <select id="difficulty" name="difficulty">
+                <option value="1">レベル1：身近なもの</option>
+                <option value="2">レベル2：少し想像する</option>
+                <option value="3">レベル3：価値観を考える</option>
+                <option value="4">レベル4：自由に発想する</option>
+              </select>
+              <label for="theme-mode">お題の選び方</label>
+              <select id="theme-mode" name="theme-mode">
+                <option value="random">ランダム</option>
+                <option value="custom">自分で入力</option>
+                <option value="none">お題なし</option>
+              </select>
+              <div id="custom-theme-field" hidden>
+                <label for="custom-theme">自由入力のお題</label>
+                <input id="custom-theme" maxlength="100" placeholder="例：休日にやってみたいこと">
+              </div>
+              <button id="start-button" class="button button-primary" type="submit">お題と数字を配る</button>
+            </form>
           </section>
 
-          <section id="number-panel" class="panel number-panel" aria-labelledby="number-title" hidden>
-            <p class="eyebrow">YOUR NUMBER</p>
-            <h2 id="number-title" class="number-value">--</h2>
-            <p class="muted-copy">この数字はあなたにだけ表示されています。</p>
-          </section>
+          <div class="game-cards">
+            <section id="theme-panel" class="panel theme-panel" aria-labelledby="theme-title" hidden>
+              <p id="round-label" class="eyebrow"></p>
+              <h2 id="theme-title">今回のお題</h2>
+              <p id="theme-text" class="theme-text"></p>
+              <p id="theme-level" class="muted-copy"></p>
+              <p class="muted-copy">数字が小さいほど低く、大きいほど高くなるように表現しましょう。</p>
+            </section>
+            <section id="number-panel" class="panel number-panel" aria-labelledby="number-title" hidden>
+              <p class="eyebrow">YOUR NUMBER</p>
+              <h2 id="number-title" class="number-value">--</h2>
+              <p class="muted-copy">この数字はあなたにだけ表示されています。</p>
+            </section>
+          </div>
         </div>
       </section>
 

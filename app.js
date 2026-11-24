@@ -19,6 +19,15 @@ const roomStatus = document.querySelector("#room-status");
 const playersList = document.querySelector("#players-list");
 const playerCount = document.querySelector("#player-count");
 const startButton = document.querySelector("#start-button");
+const roundForm = document.querySelector("#round-form");
+const difficulty = document.querySelector("#difficulty");
+const themeMode = document.querySelector("#theme-mode");
+const customThemeField = document.querySelector("#custom-theme-field");
+const customTheme = document.querySelector("#custom-theme");
+const themePanel = document.querySelector("#theme-panel");
+const themeText = document.querySelector("#theme-text");
+const themeLevel = document.querySelector("#theme-level");
+const roundLabel = document.querySelector("#round-label");
 const hostHint = document.querySelector("#host-hint");
 const guestHint = document.querySelector("#guest-hint");
 const numberPanel = document.querySelector("#number-panel");
@@ -29,6 +38,57 @@ const leaveButton = document.querySelector("#leave-button");
 let currentRoomId = null;
 let currentRoomCode = null;
 let activeChannel = null;
+let currentRound = 0;
+let previousTheme = null;
+let refreshSequence = 0;
+
+const themes = {
+  1: [
+    "朝に飲むものの温かさ",
+    "公園で見かけるものの大きさ",
+    "文房具を持ち運ぶときの重さ",
+    "家の中で聞こえる音の大きさ",
+    "雨の日に使うものの大きさ",
+    "手で触ったときのやわらかさ",
+    "おやつを食べるのにかかる時間",
+    "乗り物で移動できる距離"
+  ],
+  2: [
+    "旅先で偶然見つけたら立ち寄りたくなる場所",
+    "お弁当を開けたときの意外さ",
+    "部屋の模様替えで気分が変わりそうなこと",
+    "道具に名前をつけたときの頼もしさ",
+    "窓の外に見えたら写真を撮りたくなる景色",
+    "短い休憩で気分転換になりそうなこと",
+    "旅の荷物に入れたくなる小さなもの",
+    "もし店を開くなら看板にしたいものの目立ちやすさ"
+  ],
+  3: [
+    "待ち時間を楽しくする工夫の魅力",
+    "初対面の会話で安心できる話題",
+    "一日だけ交換してみたい役割の魅力",
+    "ささやかな親切に気づいたときのうれしさ",
+    "長い旅で隣にいてほしい相棒の頼もしさ",
+    "予定が変わった日に楽しめそうな過ごし方",
+    "暮らしに新しく加えたい習慣の続けやすさ",
+    "街にあったらみんなが集まりそうな場所"
+  ],
+  4: [
+    "雲がつける日記の一文の明るさ",
+    "時間を売る店に並んでいそうな商品の魅力",
+    "眠れない星に贈る言葉の心強さ",
+    "未来の図書館で借りられそうな不思議な体験",
+    "風に名前をつけるなら、その名前の勇ましさ",
+    "忘れ物たちが開く会議の議題の重要さ",
+    "影が休日に出かけたい場所の楽しさ",
+    "夢の中の駅にありそうな案内表示の不思議さ"
+  ]
+};
+
+function chooseTheme(level) {
+  const choices = themes[level].filter((theme) => theme !== previousTheme);
+  return choices[Math.floor(Math.random() * choices.length)];
+}
 
 function activeNotice() {
   return roomScreen.hidden ? homeNotice : roomNotice;
@@ -119,12 +179,17 @@ async function enterRoom(roomId) {
 
 async function refreshRoom() {
   if (!currentRoomId) return;
+  const roomId = currentRoomId;
+  const sequence = ++refreshSequence;
   const { data, error } = await supabase.rpc("get_room_state", {
-    p_room_id: currentRoomId
+    p_room_id: roomId
   });
+  if (roomId !== currentRoomId || sequence !== refreshSequence) return;
   if (error) throw error;
 
   currentRoomCode = data.code;
+  currentRound = data.round_number ?? 0;
+  previousTheme = data.theme ?? null;
   roomHeading.textContent = data.code;
   roomStatus.textContent = data.status === "started" ? "配布完了" : "参加者を待っています";
   playerCount.textContent = `${data.players.length}人`;
@@ -148,12 +213,17 @@ async function refreshRoom() {
   }));
 
   const waiting = data.status === "waiting";
-  startButton.hidden = !waiting || !data.is_host;
+  roundForm.hidden = !data.is_host;
+  startButton.textContent = waiting ? "お題と数字を配る" : "次のお題と数字を配る";
   hostHint.hidden = !waiting || !data.is_host;
   guestHint.hidden = !waiting || data.is_host;
   numberPanel.hidden = waiting;
+  themePanel.hidden = waiting || !data.theme;
   if (!waiting) {
     numberValue.textContent = Number.isInteger(data.my_number) ? String(data.my_number) : "--";
+    roundLabel.textContent = currentRound > 0 ? `第${currentRound}回のお題` : "今回のお題";
+    themeText.textContent = data.theme ?? "";
+    themeLevel.textContent = data.difficulty ? `レベル${data.difficulty}` : "";
   }
 }
 
@@ -173,6 +243,9 @@ function subscribeToRoom(roomId) {
       refreshRoom().catch((error) => notify(errorMessage(error)));
     })
     .subscribe((status) => {
+      if (status === "SUBSCRIBED" && currentRoomId === roomId) {
+        refreshRoom().catch((error) => notify(errorMessage(error)));
+      }
       if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
         notify("リアルタイム接続に失敗しました。ページを再読み込みしてください。");
       }
@@ -193,12 +266,30 @@ joinForm.addEventListener("submit", (event) => {
   withBusyButton(joinButton, () => joinRoom(displayName, code));
 });
 
-startButton.addEventListener("click", () => {
+themeMode.addEventListener("change", () => {
+  const custom = themeMode.value === "custom";
+  customThemeField.hidden = !custom;
+  customTheme.required = custom;
+});
+
+roundForm.addEventListener("submit", (event) => {
+  event.preventDefault();
   withBusyButton(startButton, async () => {
-    const { error } = await supabase.rpc("start_game", {
-      p_room_id: currentRoomId
+    const level = Number(difficulty.value);
+    const theme = themeMode.value === "none"
+      ? null
+      : themeMode.value === "custom" ? customTheme.value.trim() : chooseTheme(level);
+    if (themeMode.value === "custom" && !theme) {
+      throw new Error("お題を入力してください。");
+    }
+    const { error } = await supabase.rpc("start_round", {
+      p_room_id: currentRoomId,
+      p_expected_round: currentRound,
+      p_difficulty: theme === null ? null : level,
+      p_theme: theme
     });
     if (error) throw error;
+    clearNotices();
     await refreshRoom();
   });
 });
@@ -225,6 +316,8 @@ leaveButton.addEventListener("click", () => {
     }
     currentRoomId = null;
     currentRoomCode = null;
+    currentRound = 0;
+    previousTheme = null;
     sessionStorage.removeItem("ito-room-id");
     showScreen("home");
   });
